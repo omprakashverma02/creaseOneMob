@@ -8,16 +8,18 @@ import '../../widgets/common.dart';
 import 'player_form_screen.dart';
 
 /// Multi-select search over all registered players (name / mobile / email / id).
-Future<List<String>?> showPlayerMultiSearch(BuildContext context, {Set<String> exclude = const {}, String title = 'Add players'}) {
+/// [takenBy]: playerId → team name for players already in another team of the same tournament (not selectable).
+Future<List<String>?> showPlayerMultiSearch(BuildContext context, {Set<String> exclude = const {}, Map<String, String> takenBy = const {}, String title = 'Add players'}) {
   return showModalBottomSheet<List<String>>(
     context: context,
     isScrollControlled: true,
-    builder: (c) => _PlayerSearchSheet(exclude: exclude, title: title),
+    builder: (c) => _PlayerSearchSheet(exclude: exclude, takenBy: takenBy, title: title),
   );
 }
 
 class _PlayerSearchSheet extends StatefulWidget {
-  const _PlayerSearchSheet({required this.exclude, required this.title});
+  const _PlayerSearchSheet({required this.exclude, required this.title, this.takenBy = const {}});
+  final Map<String, String> takenBy;
   final Set<String> exclude;
   final String title;
   @override
@@ -106,15 +108,21 @@ class _PlayerSearchSheetState extends State<_PlayerSearchSheet> {
               final p = results[i];
               final id = p['id'].toString();
               final already = widget.exclude.contains(id);
+              final otherTeam = widget.takenBy[id];
+              final locked = already || otherTeam != null;
               return CheckboxListTile(
                 value: already || selected.containsKey(id),
-                onChanged: already ? null : (v) => setState(() => v == true ? selected[id] = p : selected.remove(id)),
+                onChanged: locked ? null : (v) => setState(() => v == true ? selected[id] = p : selected.remove(id)),
                 secondary: PlayerAvatar(name: p['name'] ?? '', imageUrl: p['imageUrl'], size: 40),
                 title: Text(p['name']?.toString() ?? '-', style: const TextStyle(fontWeight: FontWeight.w700)),
                 subtitle: Text(
-                    [Cricket.roleLabel(p['role']), if (p['mobileNumber'] != null) '••${p['mobileNumber'].toString().length > 4 ? p['mobileNumber'].toString().substring(p['mobileNumber'].toString().length - 4) : p['mobileNumber']}', if (already) 'Already in squad']
-                        .join(' • '),
-                    style: const TextStyle(fontSize: 12)),
+                    [
+                      Cricket.roleLabel(p['role']),
+                      if (p['mobileNumber'] != null) '••${p['mobileNumber'].toString().length > 4 ? p['mobileNumber'].toString().substring(p['mobileNumber'].toString().length - 4) : p['mobileNumber']}',
+                      if (already) 'Already in squad',
+                      if (otherTeam != null) 'Already in $otherTeam',
+                    ].join(' • '),
+                    style: TextStyle(fontSize: 12, color: otherTeam != null ? AppColors.warning : null)),
               );
             },
           ),

@@ -66,6 +66,9 @@ class MatchView {
   Map<String, dynamic> get result => asMap(raw['result']);
   Map<String, dynamic> get scorerMeta => asMap(raw['scorerMeta']);
   bool get scoringLocked => scorerMeta['scoringLocked'] == true;
+
+  /// Server flag on list rows: may the signed-in user score this match?
+  bool get viewerCanScore => raw['viewerCanScore'] == true;
   String? get tossWinnerId => asStr(raw['tossWinnerId']);
   String? get tossDecision => asStr(raw['tossDecision']);
   String? get firstBattingTeamId => asStr(raw['firstBattingTeamId']);

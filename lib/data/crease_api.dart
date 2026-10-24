@@ -47,7 +47,9 @@ class CreaseApi {
   Future<String> uploadImage(File f, {String folder = 'misc'}) => client.uploadImage(f, folder: folder);
 
   // ───────────── Tournaments ─────────────
-  Future<List<Map<String, dynamic>>> tournaments() async => _list(await client.get('/tournaments'), 'tournaments');
+  /// All tournaments (each carries `viewerCanManage`). [mine] → only tournaments I manage.
+  Future<List<Map<String, dynamic>>> tournaments({bool mine = false}) async =>
+      _list(await client.get('/tournaments', query: {if (!mine) 'scope': 'all'}), 'tournaments');
   Future<List<Map<String, dynamic>>> publicTournaments() async => _list(await client.get('/tournaments/list-public'), 'tournaments');
   Future<Map<String, dynamic>> tournament(String id) async => asMap(await client.get('/tournaments/$id'));
   Future<Map<String, dynamic>> createTournament(Map<String, dynamic> d) async => asMap(await client.post('/tournaments', data: d));
@@ -82,7 +84,20 @@ class CreaseApi {
   Future<void> removeScoringAccess(String id, String accessId) => client.delete('/tournaments/$id/scoring-access/$accessId');
 
   // ───────────── Teams ─────────────
-  Future<List<Map<String, dynamic>>> teams() async => _list(await client.get('/teams'));
+  /// All teams for viewing (each has `viewerIsOwner`); [mine] → only teams I created (for edit pickers).
+  Future<List<Map<String, dynamic>>> teams({bool mine = false}) async => _list(await client.get('/teams', query: {if (!mine) 'scope': 'all'}));
+
+  Future<bool> canEditTeam(String id) async => _perm('/teams/$id/permissions', 'canEdit');
+  Future<bool> canEditPlayer(String id) async => _perm('/players/$id/permissions', 'canEdit');
+  Future<bool> canManageTournament(String id) async => _perm('/tournaments/$id/permissions', 'canManage');
+
+  Future<bool> _perm(String path, String key) async {
+    try {
+      return asMap(await client.get(path))[key] == true;
+    } on ApiException {
+      return false;
+    }
+  }
   Future<Map<String, dynamic>> team(String id) async => asMap(await client.get('/teams/$id'));
   Future<Map<String, dynamic>> createTeam(Map<String, dynamic> d) async => asMap(await client.post('/teams', data: d));
   Future<void> updateTeam(String id, Map<String, dynamic> d) => client.put('/teams/$id', data: d);
@@ -93,6 +108,16 @@ class CreaseApi {
 
   Future<void> assignPlayersToTeam({required String teamId, String? tournamentId, required List<String> playerIds}) =>
       client.post('/team-players', data: {'teamId': teamId, if (tournamentId != null) 'tournamentId': tournamentId, 'playerIds': playerIds});
+
+  /// playerId → team name for everyone already in a team of [tournamentId] other than [exceptTeamId].
+  Future<Map<String, String>> playersTakenInTournament(String tournamentId, {required String exceptTeamId}) async {
+    final rows = await teamPlayers(tournamentId: tournamentId);
+    return {
+      for (final r in rows)
+        if (r['teamId']?.toString() != exceptTeamId && r['tournamentId']?.toString() == tournamentId)
+          r['playerId'].toString(): asMap(r['team'])['name']?.toString() ?? 'another team',
+    };
+  }
 
   Future<void> updateTeamPlayer(String id, Map<String, dynamic> d) => client.put('/team-players/$id', data: d);
   Future<void> removeTeamPlayer(String id) => client.delete('/team-players/$id');
@@ -147,9 +172,32 @@ class CreaseApi {
 
   Future<dynamic> playerProfiles(Map<String, dynamic> query) => client.get('/player-profiles', query: query);
 
+  /// Every match innings the player batted in (rows include `match`).
+  Future<List<Map<String, dynamic>>> playerBattingRows(String playerId) async =>
+      _list(await client.get('/batting-stats', query: {'playerId': playerId}));
+
+  /// Every match the player bowled in (rows include `match`).
+  Future<List<Map<String, dynamic>>> playerBowlingRows(String playerId) async =>
+      _list(await client.get('/bowling-stats', query: {'playerId': playerId}));
+
   // ───────────── Matches ─────────────
-  Future<List<Map<String, dynamic>>> matches({String? status, String? tournamentId}) async =>
-      _list(await client.get('/matches', query: {'status': status, 'tournamentId': tournamentId}));
+  /// Every match on the platform (each carries `viewerCanScore`). [mine] → only matches I manage.
+  Future<List<Map<String, dynamic>>> matches({String? status, String? tournamentId, bool mine = false}) async =>
+      _list(await client.get('/matches', query: {'status': status, 'tournamentId': tournamentId, if (!mine) 'scope': 'all'}));
+
+  /// Whether the signed-in user may score this match (server-enforced).
+  Future<bool> canScoreMatch(String matchId) async {
+    try {
+      return asMap(await client.get('/matches/$matchId/permissions'))['canScore'] == true;
+    } on ApiException {
+      return false;
+    }
+  }
+
+  // ───────────── World cricket (international feed via backend) ─────────────
+  Future<Map<String, dynamic>> worldMatches() async => asMap(await client.get('/world/matches'));
+  Future<Map<String, dynamic>> worldMatch(String id) async => asMap(await client.get('/world/matches/$id'));
+  Future<Map<String, dynamic>> worldSeries() async => asMap(await client.get('/world/series'));
 
   Future<Map<String, dynamic>> match(String id) async => asMap(await client.get('/matches/$id'));
   Future<Map<String, dynamic>> matchBySeq(int seq) async => asMap(await client.get('/matches/by-seq/$seq'));

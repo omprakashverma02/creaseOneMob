@@ -12,7 +12,10 @@ import 'player_detail_screen.dart';
 import 'player_form_screen.dart';
 
 class PlayersScreen extends StatefulWidget {
-  const PlayersScreen({super.key});
+  const PlayersScreen({super.key, this.embedded = false});
+
+  /// Inside the Stats hub: no app bar of its own.
+  final bool embedded;
   @override
   State<PlayersScreen> createState() => _PlayersScreenState();
 }
@@ -42,7 +45,7 @@ class _PlayersScreenState extends State<PlayersScreen> {
   Widget build(BuildContext context) {
     final canManage = context.watch<AuthService>().user?.canManage ?? false;
     return Scaffold(
-      appBar: AppBar(title: const Text('Players'), actions: [
+      appBar: widget.embedded ? null : AppBar(title: const Text('Players'), actions: [
         if (canManage)
           IconButton(
             tooltip: 'Import from Excel',

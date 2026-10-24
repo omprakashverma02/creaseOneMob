@@ -25,6 +25,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
   List<Map<String, dynamic>> tournaments = [];
   late String? tournamentId = widget.tournamentId;
   String? error;
+  bool _canEdit = false;
 
   @override
   void initState() {
@@ -38,7 +39,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
       final r = await Future.wait([
         api.team(widget.teamId),
         api.teamPlayers(teamId: widget.teamId),
-        api.tournaments().catchError((_) => <Map<String, dynamic>>[]),
+        api.tournaments(mine: true).catchError((_) => <Map<String, dynamic>>[]),
       ]);
       if (!mounted) return;
       setState(() {
@@ -47,6 +48,9 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
         tournaments = r[2] as List<Map<String, dynamic>>;
         error = null;
       });
+      // Anyone can view a team; edit / squad controls only for its owner or tournament managers.
+      final canEdit = await api.canEditTeam(widget.teamId);
+      if (mounted) setState(() => _canEdit = canEdit);
     } catch (e) {
       if (mounted) setState(() => error = e.toString());
     }
@@ -62,7 +66,12 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
 
   Future<void> _addPlayers() async {
     final existing = _visible.map((a) => a['playerId'].toString()).toSet();
-    final picked = await showPlayerMultiSearch(context, exclude: existing, title: 'Add players to ${team?['name'] ?? 'team'}');
+    // One team per player per tournament: lock players already in another squad.
+    final taken = tournamentId == null
+        ? const <String, String>{}
+        : await context.api.playersTakenInTournament(tournamentId!, exceptTeamId: widget.teamId).catchError((_) => <String, String>{});
+    if (!mounted) return;
+    final picked = await showPlayerMultiSearch(context, exclude: existing, takenBy: taken, title: 'Add players to ${team?['name'] ?? 'team'}');
     if (picked == null || picked.isEmpty || !mounted) return;
     try {
       await context.api.assignPlayersToTeam(teamId: widget.teamId, tournamentId: tournamentId, playerIds: picked);
@@ -86,7 +95,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final canManage = context.watch<AuthService>().user?.canManage ?? false;
+    final canManage = (context.watch<AuthService>().user?.canManage ?? false) && _canEdit;
     if (team == null) return Scaffold(appBar: AppBar(), body: error != null ? ErrorView(message: error!, onRetry: _load) : const LoadingView());
     final t = team!;
     final color = AppColors.fromHex(t['themeColor']);

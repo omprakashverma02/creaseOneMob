@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../../core/cricket.dart';
 import '../../core/theme.dart';
-import '../../services/auth_service.dart';
 import '../../widgets/common.dart';
+import '../stats/player_match_log.dart';
 import 'player_form_screen.dart';
 
 /// Player profile with career / tournament batting & bowling quick stats.
@@ -39,14 +38,19 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
         error = null;
         _rev++;
       });
+      // Editing is limited to the player's creator, the player themself, or their tournament's managers.
+      final canEdit = await api.canEditPlayer(widget.playerId);
+      if (mounted) setState(() => _canEdit = canEdit);
     } catch (e) {
       if (mounted) setState(() => error = e.toString());
     }
   }
 
+  bool _canEdit = false;
+
   @override
   Widget build(BuildContext context) {
-    final canManage = context.watch<AuthService>().user?.canManage ?? false;
+    final canManage = _canEdit;
     if (p == null) return Scaffold(appBar: AppBar(), body: error != null ? ErrorView(message: error!, onRetry: _load) : const LoadingView());
     final x = p!;
     final tournaments = <String, String>{};
@@ -168,6 +172,7 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
             ),
           ),
         ),
+        SliverToBoxAdapter(child: PlayerMatchLog(key: ValueKey('log$tournamentId$_rev'), playerId: widget.playerId, tournamentId: tournamentId)),
         const SliverToBoxAdapter(child: SizedBox(height: 30)),
       ]),
     );

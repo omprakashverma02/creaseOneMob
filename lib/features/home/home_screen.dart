@@ -10,6 +10,7 @@ import '../../widgets/match_card.dart';
 import '../matches/create_match_screen.dart';
 import '../matches/match_detail_screen.dart';
 import '../tournaments/tournament_form_screen.dart';
+import '../world/world_screens.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,7 +19,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 3, vsync: this);
+  late final TabController _tabs = TabController(length: 4, vsync: this);
   List<MatchView>? _matches;
   String? _error;
 
@@ -88,6 +89,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 Tab(text: 'Live${live.isNotEmpty ? ' (${live.length})' : ''}'),
                 Tab(text: 'Upcoming${upcoming.isNotEmpty ? ' (${upcoming.length})' : ''}'),
                 const Tab(text: 'Results'),
+                const Tab(text: 'World'),
               ],
             ),
           ),
@@ -100,6 +102,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     _list(live, 'No live matches', 'Start scoring a scheduled match to see it here.', header: _hero(user)),
                     _list(upcoming, 'No upcoming matches', 'Create a match to schedule it.'),
                     _list(done, 'No results yet', 'Completed matches will appear here.'),
+                    const WorldFeedView(),
                   ]),
       ),
       floatingActionButton: (user?.canManage ?? false)
@@ -180,6 +183,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: MatchCard(
               match: m,
+              trailing: m.viewerCanScore && !m.isCompleted ? const Pill('YOU SCORE', color: AppColors.warning, icon: Icons.edit) : null,
               onTap: () async {
                 await context.push(MatchDetailScreen(matchId: m.id));
                 _load();

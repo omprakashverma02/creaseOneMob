@@ -103,7 +103,12 @@ class _MatchSetupScreenState extends State<MatchSetupScreen> {
   String get bowlingTeamId => battingTeamId == match!.team1.id ? match!.team2.id : match!.team1.id;
 
   Future<void> _addFromRegistry(String teamId) async {
-    final ids = await showPlayerMultiSearch(context, exclude: squads[teamId]!.map((p) => p['id'].toString()).toSet(), title: 'Add players to squad');
+    final tid = match!.tournamentId;
+    final taken = tid.isEmpty
+        ? const <String, String>{}
+        : await context.api.playersTakenInTournament(tid, exceptTeamId: teamId).catchError((_) => <String, String>{});
+    if (!mounted) return;
+    final ids = await showPlayerMultiSearch(context, exclude: squads[teamId]!.map((p) => p['id'].toString()).toSet(), takenBy: taken, title: 'Add players to squad');
     if (ids == null || ids.isEmpty || !mounted) return;
     try {
       await context.api.assignPlayersToTeam(teamId: teamId, tournamentId: match!.tournamentId.isEmpty ? null : match!.tournamentId, playerIds: ids);

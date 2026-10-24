@@ -28,6 +28,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
   List<MatchView> matches = [];
   String? error;
   int _rev = 0;
+  bool _viewerCanManage = false;
 
   @override
   void initState() {
@@ -42,11 +43,13 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
         api.tournament(widget.tournamentId),
         api.tournamentTeams(widget.tournamentId),
         api.matches(tournamentId: widget.tournamentId),
+        api.canManageTournament(widget.tournamentId),
       ]);
       if (!mounted) return;
       setState(() {
         t = r[0] as Map<String, dynamic>;
         teams = r[1] as List<Map<String, dynamic>>;
+        _viewerCanManage = r[3] as bool;
         matches = (r[2] as List<Map<String, dynamic>>)
             .where((m) => m['tournamentId']?.toString() == widget.tournamentId || asMap(m['tournament'])['id']?.toString() == widget.tournamentId)
             .map(MatchView.new)
@@ -61,7 +64,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
   }
 
   Future<void> _addTeams() async {
-    final all = await context.api.teams();
+    final all = await context.api.teams(mine: true);
     if (!mounted) return;
     final existing = teams.map((e) => e['id'].toString()).toSet();
     final selected = <String>{};
@@ -142,7 +145,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final canManage = context.watch<AuthService>().user?.canManage ?? false;
+    final canManage = (context.watch<AuthService>().user?.canManage ?? false) && _viewerCanManage;
     if (t == null) {
       return Scaffold(appBar: AppBar(), body: error != null ? ErrorView(message: error!, onRetry: _load) : const LoadingView());
     }
@@ -195,8 +198,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
           ],
           body: TabBarView(children: [
             _matchesTab(canManage),
-            _PointsTableTab(key: ValueKey('pt$_rev'), tournamentId: widget.tournamentId),
-            _StatsTab(key: ValueKey('st$_rev'), tournamentId: widget.tournamentId),
+            PointsTableTab(key: ValueKey('pt$_rev'), tournamentId: widget.tournamentId),
+            TournamentStatsTab(key: ValueKey('st$_rev'), tournamentId: widget.tournamentId),
             TournamentInsightsView(key: ValueKey('ti$_rev'), tournamentId: widget.tournamentId),
             _teamsTab(canManage),
             _infoTab(),
@@ -298,8 +301,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
   }
 }
 
-class _PointsTableTab extends StatelessWidget {
-  const _PointsTableTab({super.key, required this.tournamentId});
+class PointsTableTab extends StatelessWidget {
+  const PointsTableTab({super.key, required this.tournamentId});
   final String tournamentId;
 
   @override
@@ -368,8 +371,8 @@ class _PointsTableTab extends StatelessWidget {
   }
 }
 
-class _StatsTab extends StatelessWidget {
-  const _StatsTab({super.key, required this.tournamentId});
+class TournamentStatsTab extends StatelessWidget {
+  const TournamentStatsTab({super.key, required this.tournamentId});
   final String tournamentId;
 
   @override

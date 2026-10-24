@@ -98,7 +98,7 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
 
   Future<void> _load() async {
     try {
-      final list = await context.api.tournaments();
+      final list = await context.api.tournaments(mine: true);
       if (!mounted) return;
       tournaments = list;
       final tid = widget.tournamentId ?? widget.existing?['tournamentId']?.toString();
@@ -126,7 +126,7 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
       }
     });
     var ts = await context.api.tournamentTeams(t['id'].toString());
-    if (ts.isEmpty) ts = await context.api.teams();
+    if (ts.isEmpty) ts = await context.api.teams(mine: true);
     if (mounted) setState(() => teams = ts);
   }
 

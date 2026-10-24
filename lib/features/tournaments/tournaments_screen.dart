@@ -110,7 +110,10 @@ class _TournamentTile extends StatelessWidget {
             ],
           ]),
         ),
-        if (ongoing) const Pill('ONGOING', color: AppColors.success) else if (upcoming) const Pill('UPCOMING', color: AppColors.cyan),
+        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          if (ongoing) const Pill('ONGOING', color: AppColors.success) else if (upcoming) const Pill('UPCOMING', color: AppColors.cyan),
+          if (t['viewerCanManage'] == true) ...[const SizedBox(height: 6), const Pill('ORGANISER', color: AppColors.warning, icon: Icons.verified_user)],
+        ]),
       ]),
     );
   }

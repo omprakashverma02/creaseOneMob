@@ -33,6 +33,9 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
   StreamSubscription? _sub;
   int _rev = 0;
 
+  /// Server-checked: only tournament managers / assigned scorers may score this match.
+  bool _canScore = false;
+
   @override
   void initState() {
     super.initState();
@@ -56,6 +59,11 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
       }
       setState(() {
         snap = Snapshot(s);
+        if (_rev == 0) {
+          context.api.canScoreMatch(widget.matchId).then((v) {
+            if (mounted) setState(() => _canScore = v);
+          });
+        }
         error = null;
         _rev++;
       });
@@ -121,11 +129,11 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthService>().user;
+    context.watch<AuthService>(); // rebuild on sign-in changes
     if (snap == null) return Scaffold(appBar: AppBar(), body: error != null ? ErrorView(message: error!, onRetry: _load) : const LoadingView());
     final s = snap!;
     final m = s.match;
-    final canScore = (user?.canManage ?? false) && !m.isCompleted && !m.scoringLocked;
+    final canScore = _canScore && !m.isCompleted && !m.scoringLocked;
     return DefaultTabController(
       length: 5,
       initialIndex: s.hasStarted ? 0 : 4,
@@ -139,7 +147,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
           ]),
           actions: [
             IconButton(onPressed: _share, icon: const Icon(Icons.share_outlined)),
-            if (user?.canManage ?? false)
+            if (_canScore)
               PopupMenuButton<String>(
                 onSelected: _menu,
                 itemBuilder: (c) => [
